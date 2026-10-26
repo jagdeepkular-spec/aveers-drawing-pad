@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Aveer’s Pad">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#DCE9FF">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Aveer’s Drawing Pad</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grandstander:wght@500;700;800&family=Nunito:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen art table — header strip, white paper filling the middle, a crayon tray docked at the bottom. */
+:root {
+  --bg: #DCE9FF;
+  --tray: #FFFFFF;
+  --ink: #16233F;
+  --muted: #56678A;
+  --line: #C3D4F2;
+  --sun: #FFC72C;
+  --on-sun: #16233F;
+  --paper: #FFFFFF;
+  --shadow: rgba(22, 35, 63, .16);
+  --scrim: rgba(16, 27, 51, .55);
+  --font-display: "Grandstander", "Comic Sans MS", "Trebuchet MS", sans-serif;
+  --font-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1A31; --tray: #1A2949; --ink: #EEF3FF; --muted: #A7B6D6; --line: #2D406E;
+    --sun: #FFC72C; --on-sun: #16233F; --paper: #FFFFFF; --shadow: rgba(0, 0, 0, .45); --scrim: rgba(0, 0, 0, .65);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1A31; --tray: #1A2949; --ink: #EEF3FF; --muted: #A7B6D6; --line: #2D406E;
+  --sun: #FFC72C; --on-sun: #16233F; --paper: #FFFFFF; --shadow: rgba(0, 0, 0, .45); --scrim: rgba(0, 0, 0, .65);
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  height: 100%; margin: 0; overflow: hidden; touch-action: manipulation;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+button, label { touch-action: manipulation; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, label:focus-within { outline: 3px solid var(--sun); outline-offset: 2px; }
+
+.app {
+  height: 100%; max-width: 1180px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 10px;
+  padding-block: 10px;
+}
+
+/* Header */
+.top { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: nowrap; }
+.title { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: clamp(22px, 3.6vw, 32px); line-height: 1; letter-spacing: .5px; white-space: nowrap; }
+.title span { display: inline-block; }
+.actions { display: flex; gap: 6px; min-width: 0; }
+.act {
+  display: flex; align-items: center; gap: 6px;
+  height: 46px; padding: 0 12px; border-radius: 14px;
+  border: 2.5px solid var(--line); background: var(--tray);
+  font-family: var(--font-display); font-weight: 700; font-size: 15px;
+  transition: transform .12s ease;
+}
+.act .ic { font-size: 20px; line-height: 1; }
+.act .lb { white-space: nowrap; }
+.act:active { transform: scale(.92); }
+.act:disabled { opacity: .4; cursor: default; }
+.act.save { background: var(--sun); color: var(--on-sun); border-color: var(--sun); }
+
+/* Stage + paper */
+.stage { flex: 1 1 auto; min-height: 0; position: relative; display: grid; place-items: center; }
+.paper {
+  position: relative; background: var(--paper); border-radius: 18px;
+  box-shadow: 0 10px 30px var(--shadow), 0 0 0 3px var(--line);
+  overflow: hidden; touch-action: none; max-width: 100%;
+}
+.paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#lines { pointer-events: none; }
+.mirror-guide {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 0;
+  border-left: 3px dashed rgba(126, 87, 194, .45); pointer-events: none;
+}
+
+/* Tray */
+.tray {
+  background: var(--tray); border-radius: 22px; padding: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  box-shadow: 0 6px 20px var(--shadow);
+}
+.row {
+  display: flex; gap: 8px; align-items: center;
+  overflow-x: auto; scrollbar-width: none; padding: 6px;
+  justify-content: safe center;
+}
+.row::-webkit-scrollbar { display: none; }
+.tool {
+  flex: 0 0 auto; width: 66px; height: 66px; border-radius: 18px;
+  border: 2.5px solid var(--line); background: var(--tray);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  transition: transform .15s ease, background .15s ease;
+}
+.tool .ic { font-size: 28px; line-height: 1.05; }
+.tool .lb { font-family: var(--font-display); font-weight: 700; font-size: 12px; }
+.tool[aria-pressed="true"] { background: var(--sun); color: var(--on-sun); border-color: var(--on-sun); transform: translateY(-3px) rotate(-3deg); }
+.sep { flex: 0 0 auto; width: 2px; height: 46px; background: var(--line); border-radius: 2px; }
+.size {
+  flex: 0 0 auto; width: 48px; height: 48px; border-radius: 50%;
+  border: 2.5px solid var(--line); background: var(--tray);
+  display: grid; place-items: center;
+}
+.size i { display: block; border-radius: 50%; background: var(--ink); }
+.size[aria-pressed="true"] { background: var(--sun); border-color: var(--on-sun); }
+.size[aria-pressed="true"] i { background: var(--on-sun); }
+
+.swatch {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%;
+  border: 3px solid var(--tray); box-shadow: 0 0 0 2px var(--line);
+  transition: transform .15s ease, box-shadow .15s ease; padding: 0;
+}
+.swatch[aria-pressed="true"] { transform: scale(1.18); box-shadow: 0 0 0 3px var(--ink); }
+.swatch.custom {
+  position: relative; display: block; cursor: pointer;
+  background: conic-gradient(#E53935, #FDD835, #43A047, #29B6F6, #7E57C2, #EC407A, #E53935);
+}
+.swatch.custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.sticker {
+  flex: 0 0 auto; width: 52px; height: 52px; border-radius: 14px;
+  border: 2.5px solid var(--line); background: var(--tray); font-size: 30px; line-height: 1; padding: 0;
+}
+.sticker[aria-pressed="true"] { background: var(--sun); border-color: var(--on-sun); transform: scale(1.1); }
+
+/* Sheets */
+.sheet { position: fixed; inset: 0; background: var(--scrim); display: grid; place-items: center; z-index: 20;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.panel { background: var(--tray); color: var(--ink); border-radius: 24px; width: min(760px, 100%); max-height: 100%; overflow: auto; padding: 18px; box-shadow: 0 20px 50px var(--shadow); }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.panel h2 { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 24px; text-wrap: balance; }
+.close { width: 46px; height: 46px; border-radius: 50%; border: 2.5px solid var(--line); background: var(--tray); font-size: 22px; flex: 0 0 auto; }
+.pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.page-btn { border: 3px solid var(--line); background: var(--tray); border-radius: 18px; padding: 8px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.page-btn canvas { width: 100%; height: auto; aspect-ratio: 4 / 3; background: var(--paper); border-radius: 12px; display: block; max-width: 100%; }
+.page-btn span { font-family: var(--font-display); font-weight: 700; font-size: 16px; }
+.page-btn[aria-current="true"] { border-color: var(--sun); background: color-mix(in srgb, var(--sun) 22%, var(--tray)); }
+
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.pic { border: 3px solid var(--line); border-radius: 16px; overflow: hidden; padding: 0; background: var(--paper); }
+.pic img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: contain; max-width: 100%; }
+.save-status { margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; font-weight: 700; font-size: 15px; line-height: 1.4; }
+.save-status.ok { background: color-mix(in srgb, #43A047 16%, var(--tray)); color: color-mix(in srgb, #2E7D32 80%, var(--ink)); }
+.save-status.warn { background: color-mix(in srgb, #E53935 16%, var(--tray)); color: color-mix(in srgb, #C62828 80%, var(--ink)); }
+.count { margin: 0 0 10px; color: var(--muted); font-weight: 700; }
+.empty { text-align: center; padding: 30px 10px; color: var(--muted); font-size: 16px; line-height: 1.5; }
+.empty b { display: block; font-family: var(--font-display); font-size: 22px; color: var(--ink); margin-bottom: 6px; }
+.viewer img { width: 100%; max-height: 60vh; object-fit: contain; background: var(--paper); border-radius: 14px; display: block; -webkit-user-select: auto; user-select: auto; -webkit-touch-callout: default; }
+.hint { color: var(--muted); font-size: 15px; line-height: 1.5; margin: 12px 0; max-width: 60ch; }
+.viewer-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.act.danger[data-armed="true"] { background: #E53935; border-color: #E53935; color: #fff; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 20px);
+  background: var(--ink); color: var(--bg); font-family: var(--font-display); font-weight: 700; font-size: 17px;
+  padding: 12px 20px; border-radius: 999px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 30;
+  max-width: calc(100% - 32px); text-align: center;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@keyframes wiggle { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-8deg) } 75% { transform: rotate(8deg) } }
+.title span:hover { animation: wiggle .4s ease; }
+
+@media (max-width: 1040px) {
+  .act .lb { display: none; }
+  .act { padding: 0; width: 46px; justify-content: center; }
+}
+@media (max-width: 640px) {
+  .act { width: 44px; }
+  .actions { gap: 5px; }
+  .title { font-size: 21px; }
+  .tool { width: 60px; height: 60px; }
+  .tool .ic { font-size: 25px; }
+}
+@media (max-width: 520px) {
+  .title .long { display: none; }
+  .top { flex-wrap: wrap; justify-content: center; row-gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  .tool[aria-pressed="true"] { transform: none; }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <h1 class="title" aria-label="Aveer's Drawing Pad">
+      <span style="color:#E53935">A</span><span style="color:#FB8C00">v</span><span style="color:#F4B400">e</span><span style="color:#43A047">e</span><span style="color:#1E88E5">r</span><span style="color:#7E57C2">’</span><span style="color:#EC407A">s</span>
+      <span class="long" style="color:var(--ink)">Drawing</span>
+      <span style="color:var(--ink)">Pad</span>
+    </h1>
+    <div class="actions">
+      <button class="act" id="undoBtn" aria-label="Undo" disabled><span class="ic">↩️</span><span class="lb">Undo</span></button>
+      <button class="act" id="clearBtn" aria-label="Start over"><span class="ic">🧹</span><span class="lb">Start over</span></button>
+      <button class="act" id="pagesBtn" aria-label="Colouring pages"><span class="ic">📄</span><span class="lb">Pages</span></button>
+      <button class="act" id="galleryBtn" aria-label="My pictures"><span class="ic">🖼️</span><span class="lb">My pictures</span></button>
+      <button class="act save" id="saveBtn" aria-label="Save picture"><span class="ic">💾</span><span class="lb">Save</span></button>
+      <button class="act" id="soundBtn" aria-label="Sound on" aria-pressed="true"><span class="ic">🔊</span></button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <div class="paper" id="paper">
+      <canvas id="paint"></canvas>
+      <canvas id="lines"></canvas>
+      <div class="mirror-guide" id="mirrorGuide" hidden></div>
+    </div>
+  </main>
+
+  <section class="tray" aria-label="Drawing tools">
+    <div class="row" id="toolRow"></div>
+    <div class="row" id="colorRow"></div>
+    <div class="row" id="stickerRow" hidden></div>
+  </section>
+</div>
+
+<div class="sheet" id="pagesSheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="pagesTitle">
+    <div class="panel-head">
+      <h2 id="pagesTitle">Pick a page to colour</h2>
+      <button class="close" data-close="pagesSheet" aria-label="Close">✕</button>
+    </div>
+    <div class="pages" id="pagesGrid"></div>
+  </div>
+</div>
+
+<div class="sheet" id="gallerySheet" hidden>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="galleryTitle">
+    <div class="panel-head">
+      <h2 id="galleryTitle">My pictures</h2>
+      <button class="close" data-close="gallerySheet" aria-label="Close">✕</button>
+    </div>
+    <div id="galleryBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  // ---------- Data ----------
+  const COLORS = [
+    ['Red', '#E53935'], ['Orange', '#FB8C00'], ['Yellow', '#FDD835'], ['Lime', '#9CCC65'],
+    ['Green', '#2E7D32'], ['Sky blue', '#4FC3F7'], ['Blue', '#1E4FD8'], ['Purple', '#7E57C2'],
+    ['Pink', '#F06292'], ['Light skin', '#F7CFAE'], ['Tan', '#C68B59'], ['Dark skin', '#7B4A2A'],
+    ['Brown', '#6D4C41'], ['Grey', '#9E9E9E'], ['Black', '#212121'], ['White', '#FFFFFF']
+  ];
+  const TOOLS = [
+    { id: 'crayon', icon: '🖍️', label: 'Crayon' },
+    { id: 'marker', icon: '🖊️', label: 'Marker' },
+    { id: 'rainbow', icon: '🌈', label: 'Rainbow' },
+    { id: 'glitter', icon: '✨', label: 'Glitter' },
+    { id: 'fill', icon: '🪣', label: 'Fill' },
+    { id: 'sticker', icon: '⭐', label: 'Stickers' },
+    { id: 'eraser', icon: '🧽', label: 'Eraser' }
+  ];
+  const STICKERS = ['⭐', '❤️', '🌈', '🦋', '🐶', '🐱', '🐰', '🦄', '🐘', '🌸', '🌻', '🍦', '🎈', '🚀', '☀️', '🐠', '🍎', '👑'];
+  const BRUSH = [5, 12, 24];       // css px
+  const STAMP = [40, 68, 104];     // css px
+  const INK = '#1C1C24';
+  const LW = 8;                    // line width in page units (page is 1000 x 1000)
+
+  const state = { tool: 'crayon', color: '#E53935', size: 1, sticker: '⭐', mirror: false, sound: true, page: 'house', hue: 0 };
+
+  // ---------- Elements ----------
+  const $ = id => document.getElementById(id);
+  const stage = $('stage'), paper = $('paper'), paint = $('paint'), lines = $('lines');
+  const pctx = paint.getContext('2d', { willReadFrequently: true });
+  const lctx = lines.getContext('2d', { willReadFrequently: true });
+
+  // ---------- Paper size (fixed resolution, scaled to fit) ----------
+  let W, H;
+  {
+    const r = stage.getBoundingClientRect();
+    let aspect = (r.width || 800) / (r.height || 600);
+    aspect = Math.min(1.6, Math.max(0.65, aspect));
+    if (aspect >= 1) { W = 1400; H = Math.round(1400 / aspect); } else { H = 1400; W = Math.round(1400 * aspect); }
+  }
+  paint.width = lines.width = W; paint.height = lines.height = H;
+
+  function resizePaper(w, h) {
+    W = w; H = h;
+    paint.width = lines.width = W; paint.height = lines.height = H;
+    wallAlpha = new Uint8Array(W * H);
+    fitPaper();
+  }
+  function fitPaper() {
+    const r = stage.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    let w = r.width, h = r.width * H / W;
+    if (h > r.height) { h = r.height; w = h * W / H; }
+    paper.style.width = Math.floor(w) + 'px';
+    paper.style.height = Math.floor(h) + 'px';
+  }
+  new ResizeObserver(fitPaper).observe(stage);
+  fitPaper();
+
+  // ---------- Line-art helpers ----------
+  function roundRectPath(c, x, y, w, h, r) {
+    const [tl, tr, br, bl] = Array.isArray(r) ? r : [r, r, r, r];
+    c.moveTo(x + tl, y);
+    c.lineTo(x + w - tr, y); c.arcTo(x + w, y, x + w, y + tr, tr);
+    c.lineTo(x + w, y + h - br); c.arcTo(x + w, y + h, x + w - br, y + h, br);
+    c.lineTo(x + bl, y + h); c.arcTo(x, y + h, x, y + h - bl, bl);
+    c.lineTo(x, y + tl); c.arcTo(x, y, x + tl, y, tl);
+    c.closePath();
+  }
+
+  function makeArt(ctx) {
+    const cw = ctx.canvas.width, ch = ctx.canvas.height;
+    const k = Math.min(cw, ch) / 1000 * 0.92;
+    const ox = (cw - 1000 * k) / 2, oy = (ch - 1000 * k) / 2;
+    const B = { L: -ox / k, R: (cw - ox) / k, T: -oy / k, Bt: (ch - oy) / k };
+    ctx.setTransform(k, 0, 0, k, ox, oy);
+    ctx.lineWidth = LW; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = INK;
+    const g = {
+      B, k, ox, oy, ctx,
+      circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke(); },
+      ellipse(x, y, rx, ry, rot = 0) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.stroke(); },
+      poly(p, close = true) { ctx.beginPath(); ctx.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) ctx.lineTo(p[i], p[i + 1]); if (close) ctx.closePath(); ctx.stroke(); },
+      line(a, b, c, d) { ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); },
+      rrect(x, y, w, h, r) { ctx.beginPath(); roundRectPath(ctx, x, y, w, h, r); ctx.stroke(); },
+      shape(fn) { ctx.beginPath(); fn(ctx); ctx.stroke(); },
+      clipped(clip, draw) { ctx.save(); ctx.beginPath(); clip(ctx); ctx.clip(); draw(); ctx.restore(); },
+      star(cx, cy, R, r, n = 5) {
+        const p = [];
+        for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, rr = i % 2 ? r : R; p.push(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+        g.poly(p);
+      },
+      blob(circles) { // outline of a union of circles (clouds, tree tops)
+        const off = document.createElement('canvas'); off.width = cw; off.height = ch;
+        const o = off.getContext('2d');
+        o.setTransform(k, 0, 0, k, ox, oy); o.lineWidth = LW * 2; o.strokeStyle = INK;
+        circles.forEach(([x, y, r]) => { o.beginPath(); o.arc(x, y, r, 0, Math.PI * 2); o.stroke(); });
+        o.globalCompositeOperation = 'destination-out';
+        circles.forEach(([x, y, r]) => { o.beginPath(); o.arc(x, y, r, 0, Math.PI * 2); o.fill(); });
+        ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(off, 0, 0); ctx.restore();
+      }
+    };
+    return g;
+  }
+  const sun = (g, x, y, r) => {
+    g.circle(x, y, r);
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; g.line(x + Math.cos(a) * (r + 20), y + Math.sin(a) * (r + 20), x + Math.cos(a) * (r + 52), y + Math.sin(a) * (r + 52)); }
+  };
+  const cloud = (g, x, y, s = 1) => g.blob([[x, y, 40 * s], [x + 50 * s, y - 25 * s, 52 * s], [x + 105 * s, y, 40 * s], [x + 52 * s, y + 14 * s, 42 * s]]);
+  const flower = (g, cx, cy, n, pr, rx, ry, cr) => {
+    for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / n; g.ellipse(cx + Math.cos(a) * pr, cy + Math.sin(a) * pr, rx, ry, a); }
+    g.circle(cx, cy, cr);
+  };
+  const wavy = (g, y, amp, per) => g.shape(c => { c.moveTo(g.B.L, y); for (let x = g.B.L; x <= g.B.R + 10; x += 8) c.lineTo(x, y + amp * Math.sin(x / per)); });
+  const seaweed = (g, x, base, h) => g.shape(c => {
+    c.moveTo(x - 18, base);
+    for (let t = 0; t <= h; t += 12) c.lineTo(x - 18 + 22 * Math.sin(t / 40), base - t);
+    for (let t = h; t >= 0; t -= 12) c.lineTo(x + 18 + 22 * Math.sin(t / 40), base - t);
+    c.closePath();
+  });
+
+  const PAGES = [
+    { id: 'house', name: 'Sunny House', draw(g) {
+      const { B } = g;
+      sun(g, 150, 170, 70);
+      cloud(g, 690, 170, 1);
+      g.line(B.L, 780, B.R, 780);
+      g.line(440, 780, 370, B.Bt); g.line(520, 780, 590, B.Bt);
+      g.poly([300, 780, 300, 460, 660, 460, 660, 780]);
+      g.poly([270, 460, 480, 285, 690, 460]);
+      g.poly([565, 356, 565, 300, 615, 300, 615, 398], false);
+      g.rrect(440, 640, 80, 140, [40, 40, 0, 0]); g.circle(504, 715, 7);
+      [335, 535].forEach(x => { g.rrect(x, 520, 90, 80, 6); g.line(x + 45, 520, x + 45, 600); g.line(x, 560, x + 90, 560); });
+      g.line(800, 780, 800, 604); g.line(850, 780, 850, 604);
+      g.blob([[825, 520, 90], [755, 565, 58], [895, 565, 58]]);
+      flower(g, 130, 870, 5, 22, 15, 11, 12); flower(g, 250, 935, 5, 22, 15, 11, 12);
+      flower(g, 760, 900, 5, 22, 15, 11, 12); flower(g, 890, 860, 5, 22, 15, 11, 12);
+    }, sample: [[150, 170, '#FDD835'], [480, 400, '#E53935']] },
+
+    { id: 'fish', name: 'Happy Fish', draw(g) {
+      const { B } = g;
+      wavy(g, 860, 15, 50);
+      const body = c => { c.moveTo(250, 500); c.bezierCurveTo(330, 330, 600, 330, 680, 500); c.bezierCurveTo(600, 670, 330, 670, 250, 500); c.closePath(); };
+      g.poly([420, 392, 470, 292, 590, 330, 580, 388]);
+      g.poly([440, 610, 470, 690, 560, 660, 555, 612]);
+      g.shape(body);
+      g.clipped(body, () => [430, 510, 590].forEach(x => g.shape(c => { c.moveTo(x, 300); c.quadraticCurveTo(x + 30, 500, x, 700); })));
+      g.poly([680, 500, 820, 390, 790, 500, 820, 610]);
+      g.circle(330, 470, 26); g.circle(336, 470, 9);
+      g.shape(c => { c.moveTo(268, 525); c.quadraticCurveTo(292, 545, 310, 525); });
+      [[210, 400, 22], [180, 330, 16], [215, 265, 12]].forEach(b => g.circle(...b));
+      g.ellipse(790, 220, 55, 30); g.poly([842, 220, 890, 188, 890, 252]); g.circle(762, 212, 7);
+      seaweed(g, 885, 872, 300); seaweed(g, 110, 868, 250);
+      g.star(320, 925, 48, 22, 5);
+      g.blob([[620, 930, 34], [660, 920, 28]]);
+    }, sample: [[560, 450, '#FB8C00']] },
+
+    { id: 'butterfly', name: 'Butterfly', draw(g) {
+      const { B } = g;
+      const wing = (m) => {
+        const X = x => m ? 1000 - x : x;
+        g.shape(c => { c.moveTo(X(478), 430); c.bezierCurveTo(X(380), 200, X(120), 180, X(160), 380); c.bezierCurveTo(X(185), 480, X(330), 500, X(478), 480); c.closePath(); });
+        g.shape(c => { c.moveTo(X(478), 510); c.bezierCurveTo(X(300), 515, X(200), 620, X(255), 725); c.bezierCurveTo(X(320), 820, X(450), 730, X(480), 610); c.closePath(); });
+        g.circle(X(285), 345, 42); g.circle(X(390), 418, 22); g.circle(X(330), 642, 32); g.circle(X(425), 572, 17);
+        g.shape(c => { c.moveTo(X(486), 268); c.quadraticCurveTo(X(468), 190, X(422), 166); });
+        g.circle(X(414), 160, 12);
+      };
+      wing(false); wing(true);
+      g.ellipse(500, 505, 26, 170);
+      g.circle(500, 305, 42); g.circle(485, 298, 6); g.circle(515, 298, 6);
+      g.shape(c => { c.moveTo(484, 318); c.quadraticCurveTo(500, 332, 516, 318); });
+      g.shape(c => { c.moveTo(B.L, 900); let up = true; for (let x = B.L; x <= B.R + 30; x += 30) { c.lineTo(x, up ? 862 : 900); up = !up; } });
+      [[130, 790], [870, 790]].forEach(([x, y]) => { g.line(x, y + 30, x, 878); flower(g, x, y, 6, 26, 16, 12, 13); });
+    }, sample: [] },
+
+    { id: 'rocket', name: 'Space Rocket', draw(g) {
+      const body = c => { c.moveTo(500, 180); c.bezierCurveTo(600, 260, 610, 420, 590, 640); c.lineTo(410, 640); c.bezierCurveTo(390, 420, 400, 260, 500, 180); c.closePath(); };
+      g.poly([412, 540, 330, 650, 340, 722, 410, 640]);
+      g.poly([588, 540, 670, 650, 660, 722, 590, 640]);
+      g.shape(c => { c.moveTo(460, 690); c.quadraticCurveTo(445, 790, 500, 885); c.quadraticCurveTo(555, 790, 540, 690); c.closePath(); });
+      g.shape(c => { c.moveTo(480, 692); c.quadraticCurveTo(472, 760, 500, 820); c.quadraticCurveTo(528, 760, 520, 692); });
+      g.poly([440, 640, 560, 640, 540, 690, 460, 690]);
+      g.shape(body);
+      g.clipped(body, () => g.line(380, 290, 620, 290));
+      g.circle(500, 410, 55); g.circle(500, 410, 38);
+      g.star(150, 180, 45, 20); g.star(830, 150, 36, 16); g.star(880, 470, 30, 13); g.star(140, 520, 28, 12); g.star(270, 340, 22, 10);
+      g.circle(835, 815, 85); g.ellipse(835, 815, 150, 34, -0.3);
+      g.circle(170, 800, 75); g.circle(145, 780, 16); g.circle(195, 830, 12); g.circle(190, 765, 9);
+    }, sample: [[620, 760, '#FB8C00']] },
+
+    { id: 'garden', name: 'Flower Garden', draw(g) {
+      wavy(g, 820, 12, 70);
+      [[230, 420, 6, 70, 42, 34, 38], [500, 330, 8, 80, 50, 22, 36], [770, 440, 5, 68, 44, 36, 36]].forEach(([cx, cy, n, pr, rx, ry, cr]) => {
+        g.rrect(cx - 10, cy + 95, 20, 820 - cy - 95, 4);
+        g.ellipse(cx - 48, 700, 45, 18, -0.5); g.ellipse(cx + 48, 640, 45, 18, 0.5);
+        flower(g, cx, cy, n, pr, rx, ry, cr);
+      });
+      sun(g, 880, 130, 52);
+      cloud(g, 560, 105, 0.8);
+      const bee = c => c.ellipse(320, 180, 50, 32, 0, 0, Math.PI * 2);
+      g.ellipse(305, 132, 24, 34, -0.3); g.ellipse(345, 132, 24, 34, 0.3);
+      g.shape(bee);
+      g.clipped(bee, () => { g.line(305, 120, 305, 240); g.line(335, 120, 335, 240); });
+      g.circle(280, 172, 6); g.poly([370, 180, 392, 170, 392, 190]);
+      for (let x = 60; x < 960; x += 110) g.shape(c => { c.moveTo(x, 880); c.lineTo(x + 12, 850); c.lineTo(x + 24, 880); });
+    }, sample: [[500, 330, '#FDD835']] },
+
+    { id: 'car', name: 'Zoom Car', draw(g) {
+      const { B } = g;
+      g.line(B.L, 800, B.R, 800); g.line(B.L, 975, B.R, 975);
+      for (let x = Math.floor(B.L / 180) * 180; x < B.R; x += 180) g.rrect(x + 40, 880, 90, 16, 6);
+      g.poly([180, 720, 180, 600, 240, 555, 330, 550, 410, 450, 640, 450, 730, 550, 800, 560, 840, 620, 840, 720]);
+      g.poly([350, 550, 420, 470, 510, 470, 510, 550]);
+      g.poly([530, 470, 630, 470, 700, 550, 530, 550]);
+      g.line(520, 560, 520, 700); g.rrect(540, 590, 40, 12, 6);
+      g.circle(815, 605, 16); g.rrect(180, 610, 22, 34, 4);
+      [[310, 725], [710, 725]].forEach(([x, y]) => { g.circle(x, y, 75); g.circle(x, y, 32); });
+      sun(g, 860, 150, 55);
+      cloud(g, 200, 150, 1);
+      [[500, 190], [580, 230]].forEach(([x, y]) => g.shape(c => { c.moveTo(x - 30, y - 10); c.quadraticCurveTo(x - 12, y - 22, x, y); c.quadraticCurveTo(x + 12, y - 22, x + 30, y - 10); }));
+    }, sample: [[600, 620, '#1E4FD8']] },
+
+    { id: 'blank', name: 'Blank Paper', draw() {}, sample: [] }
+  ];
+  const pageById = id => PAGES.find(p => p.id === id) || PAGES[0];
+
+  // ---------- Line layer ----------
+  let wallAlpha = new Uint8Array(W * H), pageXf = { k: 1, ox: 0, oy: 0 };
+  function drawLines() {
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    lctx.clearRect(0, 0, W, H);
+    const g = makeArt(lctx);
+    pageXf = { k: g.k, ox: g.ox, oy: g.oy };
+    pageById(state.page).draw(g);
+    lctx.setTransform(1, 0, 0, 1, 0, 0);
+    const d = lctx.getImageData(0, 0, W, H).data;
+    for (let i = 0, j = 3; i < W * H; i++, j += 4) wallAlpha[i] = d[j];
+  }
+
+  // ---------- Undo ----------
+  const undoStack = [];
+  function pushUndo() {
+    undoStack.push({ img: pctx.getImageData(0, 0, W, H), page: state.page });
+    if (undoStack.length > 12) undoStack.shift();
+    $('undoBtn').disabled = false;
+    markWork();
+  }
+  function undo() {
+    const s = undoStack.pop();
+    if (!s) return;
+    if (s.page !== state.page) { state.page = s.page; drawLines(); }
+    pctx.putImageData(s.img, 0, 0);
+    $('undoBtn').disabled = undoStack.length === 0;
+    play('undo');
+    markWork();
+  }
+
+  // ---------- Painting ----------
+  const hexToRgb = h => { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+  const mirrorPt = p => ({ x: W - p.x, y: p.y });
+
+  function dot(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+
+  function sparkle(x, y, r, col) {
+    pctx.save(); pctx.fillStyle = col; pctx.globalAlpha = 0.95; pctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.28 : r; pctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
+    pctx.closePath(); pctx.fill(); pctx.restore();
+  }
+
+  function segment(a, b, w) {
+    const tool = state.tool;
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    pctx.save();
+    if (tool === 'eraser') {
+      pctx.globalCompositeOperation = 'destination-out';
+      pctx.lineWidth = w * 2.2; pctx.lineCap = 'round'; pctx.strokeStyle = '#000';
+      pctx.beginPath(); pctx.moveTo(a.x, a.y); pctx.lineTo(b.x + 0.01, b.y); pctx.stroke();
+    } else if (tool === 'crayon') {
+      pctx.fillStyle = state.color; pctx.globalAlpha = 0.5;
+      const steps = Math.max(1, Math.ceil(dist / Math.max(1, w * 0.18)));
+      const n = Math.min(26, Math.max(6, Math.round(w * 0.9)));
+      const ds = Math.max(1.6, w * 0.16);
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+        for (let i = 0; i < n; i++) {
+          const ang = Math.random() * Math.PI * 2, rr = (w / 2) * Math.sqrt(Math.random());
+          pctx.fillRect(x + Math.cos(ang) * rr, y + Math.sin(ang) * rr, ds, ds);
+        }
+      }
+    } else {
+      let col = state.color;
+      if (tool === 'rainbow') { state.hue = (state.hue + Math.max(2, dist * 0.35)) % 360; col = `hsl(${state.hue} 90% 55%)`; }
+      pctx.strokeStyle = col; pctx.lineWidth = w; pctx.lineCap = 'round'; pctx.lineJoin = 'round';
+      pctx.beginPath(); pctx.moveTo(a.x, a.y); pctx.lineTo(b.x + 0.01, b.y); pctx.stroke();
+      if (tool === 'glitter') {
+        const count = Math.max(1, Math.round(dist / (w * 0.9)));
+        const shades = ['#FFFFFF', '#FFE066', '#FFD1EC', '#C9F2FF'];
+        for (let i = 0; i < count; i++) {
+          if (Math.random() < 0.55) {
+            const t = Math.random(), x = a.x + (b.x - a.x) * t + (Math.random() - .5) * w * 1.6, y = a.y + (b.y - a.y) * t + (Math.random() - .5) * w * 1.6;
+            sparkle(x, y, w * (0.35 + Math.random() * 0.45), shades[(Math.random() * shades.length) | 0]);
+          }
+        }
+      }
+    }
+    pctx.restore();
+  }
+
+  function stroke(a, b, w) {
+    segment(a, b, w);
+    if (state.mirror) segment(mirrorPt(a), mirrorPt(b), w);
+  }
+
+  function stamp(p, size) {
+    pctx.save();
+    pctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    pctx.textAlign = 'center'; pctx.textBaseline = 'middle';
+    pctx.fillText(state.sticker, p.x, p.y);
+    if (state.mirror) pctx.fillText(state.sticker, W - p.x, p.y);
+    pctx.restore();
+  }
+
+  function floodFill(px, py, hex) {
+    let x = Math.floor(px), y = Math.floor(py);
+    if (x < 0 || y < 0 || x >= W || y >= H) return false;
+    // tapped right on a line? look for the nearest open spot
+    if (wallAlpha[y * W + x] > 100) {
+      let found = false;
+      for (let r = 1; r <= 8 && !found; r++) for (let dy = -r; dy <= r && !found; dy++) for (let dx = -r; dx <= r && !found; dx++) {
+        const nx = x + dx, ny = y + dy;
+        if (nx >= 0 && ny >= 0 && nx < W && ny < H && wallAlpha[ny * W + nx] <= 100) { x = nx; y = ny; found = true; }
+      }
+      if (!found) return false;
+    }
+    const img = pctx.getImageData(0, 0, W, H), d = img.data, d32 = new Uint32Array(d.buffer);
+    const [r, g, b] = hexToRgb(hex);
+    const fc = ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
+    const si = y * W + x, sc = d32[si];
+    const sr = d[si * 4], sg = d[si * 4 + 1], sb = d[si * 4 + 2], sa = d[si * 4 + 3];
+    const seen = new Uint8Array(W * H);
+    const match = i => {
+      if (seen[i] || wallAlpha[i] > 100) return false;
+      if (d32[i] === sc) return true;
+      const j = i * 4;
+      return Math.abs(d[j] - sr) < 48 && Math.abs(d[j + 1] - sg) < 48 && Math.abs(d[j + 2] - sb) < 48 && Math.abs(d[j + 3] - sa) < 48;
+    };
+    const stack = [x, y];
+    while (stack.length) {
+      let cy = stack.pop(), cx = stack.pop();
+      while (cx >= 0 && match(cy * W + cx)) cx--;
+      cx++;
+      let up = false, down = false;
+      while (cx < W) {
+        const i = cy * W + cx;
+        if (!match(i)) break;
+        d32[i] = fc; seen[i] = 1;
+        if (cy > 0) { const m = match(i - W); if (m && !up) { stack.push(cx, cy - 1); up = true; } else if (!m) up = false; }
+        if (cy < H - 1) { const m = match(i + W); if (m && !down) { stack.push(cx, cy + 1); down = true; } else if (!m) down = false; }
+        cx++;
+      }
+    }
+    // tuck colour under the edge of the lines so no white halo shows
+    for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+      const i = yy * W + xx;
+      if (!seen[i]) continue;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+        const nx = xx + dx, ny = yy + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const n = ny * W + nx;
+        if (!seen[n] && wallAlpha[n] > 100) d32[n] = fc;
+      }
+    }
+    pctx.putImageData(img, 0, 0);
+    return true;
+  }
+
+  // ---------- Pointer input ----------
+  let activeId = null, last = null, scale = 1;
+  const toCanvas = e => {
+    const r = paint.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+  };
+  paint.addEventListener('contextmenu', e => e.preventDefault());
+  paint.addEventListener('pointerdown', e => {
+    if (activeId !== null) return;
+    unlockAudio();
+    const r = paint.getBoundingClientRect();
+    scale = W / r.width;
+    const p = toCanvas(e);
+    if (state.tool === 'fill') {
+      pushUndo();
+      const ok = floodFill(p.x, p.y, state.color);
+      if (state.mirror) floodFill(W - p.x, p.y, state.color);
+      if (ok) play('fill'); else undoStack.pop();
+      $('undoBtn').disabled = undoStack.length === 0;
+      return;
+    }
+    if (state.tool === 'sticker') { pushUndo(); stamp(p, STAMP[state.size] * scale); play('stamp'); return; }
+    activeId = e.pointerId;
+    try { paint.setPointerCapture(e.pointerId); } catch (_) {}
+    pushUndo();
+    last = p;
+    stroke(p, p, BRUSH[state.size] * scale);
+  });
+  paint.addEventListener('pointermove', e => {
+    if (e.pointerId !== activeId) return;
+    const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+    for (const ev of (evs.length ? evs : [e])) { const p = toCanvas(ev); stroke(last, p, BRUSH[state.size] * scale); last = p; }
+  });
+  const end = e => { if (e.pointerId === activeId) { activeId = null; last = null; markWork(); } };
+  paint.addEventListener('pointerup', end);
+  paint.addEventListener('pointercancel', end);
+
+  // ---------- Sound ----------
+  let ac = null;
+  function unlockAudio() { if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {} } if (ac && ac.state === 'suspended') ac.resume().catch(() => {}); }
+  function tone(f1, f2, dur, type = 'sine', vol = 0.12, delay = 0) {
+    if (!ac || !state.sound) return;
+    const t = ac.currentTime + delay, o = ac.createOscillator(), gn = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(gn).connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  function play(kind) {
+    if (kind === 'pick') tone(620, 900, 0.09, 'triangle', 0.1);
+    else if (kind === 'fill') tone(260, 760, 0.22, 'sine', 0.14);
+    else if (kind === 'stamp') { tone(500, 1000, 0.08, 'square', 0.05); tone(800, 1200, 0.1, 'triangle', 0.08, 0.06); }
+    else if (kind === 'undo') tone(520, 300, 0.14, 'triangle', 0.1);
+    else if (kind === 'save') [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.16, 'triangle', 0.11, i * 0.1));
+  }
+
+  // ---------- Toolbar ----------
+  const toolRow = $('toolRow'), colorRow = $('colorRow'), stickerRow = $('stickerRow');
+  TOOLS.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'tool'; b.id = 'tool-' + t.id; b.dataset.tool = t.id;
+    b.setAttribute('aria-pressed', t.id === state.tool);
+    b.innerHTML = `<span class="ic" aria-hidden="true">${t.icon}</span><span class="lb">${t.label}</span>`;
+    b.onclick = () => { unlockAudio(); setTool(t.id); play('pick'); };
+    toolRow.appendChild(b);
+  });
+  const mirrorBtn = document.createElement('button');
+  mirrorBtn.className = 'tool'; mirrorBtn.id = 'tool-mirror'; mirrorBtn.setAttribute('aria-pressed', 'false');
+  mirrorBtn.innerHTML = `<span class="ic" aria-hidden="true">🪞</span><span class="lb">Mirror</span>`;
+  mirrorBtn.onclick = () => {
+    unlockAudio(); state.mirror = !state.mirror;
+    mirrorBtn.setAttribute('aria-pressed', state.mirror); $('mirrorGuide').hidden = !state.mirror;
+    toast(state.mirror ? 'Mirror magic on! Draw on one side 🦋' : 'Mirror magic off'); play('pick');
+  };
+  const sep = () => { const s = document.createElement('span'); s.className = 'sep'; s.setAttribute('aria-hidden', 'true'); return s; };
+  toolRow.appendChild(sep()); toolRow.appendChild(mirrorBtn); toolRow.appendChild(sep());
+  [['Small', 8], ['Medium', 15], ['Big', 24]].forEach(([name, px], i) => {
+    const b = document.createElement('button');
+    b.className = 'size'; b.id = 'size-' + i; b.setAttribute('aria-label', name + ' size'); b.setAttribute('aria-pressed', i === state.size);
+    b.innerHTML = `<i style="width:${px}px;height:${px}px"></i>`;
+    b.onclick = () => { unlockAudio(); state.size = i; document.querySelectorAll('.size').forEach((s, j) => s.setAttribute('aria-pressed', j === i)); play('pick'); };
+    toolRow.appendChild(b);
+  });
+
+  COLORS.forEach(([name, hex]) => {
+    const b = document.createElement('button');
+    b.className = 'swatch'; b.id = 'color-' + hex.slice(1); b.style.background = hex; b.dataset.color = hex;
+    b.setAttribute('aria-label', name); b.setAttribute('aria-pressed', hex === state.color);
+    b.onclick = () => { unlockAudio(); setColor(hex); play('pick'); };
+    colorRow.appendChild(b);
+  });
+  const custom = document.createElement('label');
+  custom.className = 'swatch custom'; custom.title = 'Any colour';
+  custom.innerHTML = `<input type="color" id="customColor" value="#00BFA5" aria-label="Pick any colour">`;
+  colorRow.appendChild(custom);
+  custom.querySelector('input').addEventListener('input', e => setColor(e.target.value.toUpperCase(), true));
+
+  STICKERS.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.className = 'sticker'; b.id = 'sticker-' + i; b.textContent = s; b.setAttribute('aria-label', 'Sticker ' + s);
+    b.setAttribute('aria-pressed', s === state.sticker);
+    b.onclick = () => { unlockAudio(); state.sticker = s; stickerRow.querySelectorAll('.sticker').forEach(x => x.setAttribute('aria-pressed', x.textContent === s)); play('pick'); };
+    stickerRow.appendChild(b);
+  });
+
+  function setTool(id) {
+    state.tool = id;
+    toolRow.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', b.dataset.tool === id));
+    stickerRow.hidden = id !== 'sticker';
+    colorRow.hidden = id === 'sticker';
+    if (id === 'eraser' || id === 'rainbow') colorRow.style.opacity = '.45'; else colorRow.style.opacity = '';
+  }
+  function setColor(hex, fromCustom) {
+    state.color = hex;
+    colorRow.querySelectorAll('.swatch[data-color]').forEach(b => b.setAttribute('aria-pressed', b.dataset.color === hex));
+    custom.style.boxShadow = fromCustom ? '0 0 0 3px var(--ink)' : '';
+    custom.style.transform = fromCustom ? 'scale(1.18)' : '';
+    if (state.tool === 'eraser' || state.tool === 'sticker' || state.tool === 'rainbow') setTool('crayon');
+  }
+
+  // ---------- Pages ----------
+  function setPage(id) {
+    pushUndo();
+    state.page = id;
+    pctx.clearRect(0, 0, W, H);
+    drawLines();
+    markCurrentPage();
+    markWork();
+  }
+  const grid = $('pagesGrid');
+  PAGES.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'page-btn'; b.id = 'page-' + p.id; b.dataset.page = p.id;
+    const c = document.createElement('canvas'); c.width = 320; c.height = 240;
+    const cx = c.getContext('2d'); p.draw(makeArt(cx));
+    b.appendChild(c);
+    const s = document.createElement('span'); s.textContent = p.name; b.appendChild(s);
+    b.onclick = () => { setPage(p.id); closeSheet('pagesSheet'); play('fill'); toast(p.id === 'blank' ? 'Fresh paper! Draw anything 🖍️' : `${p.name} — tap the 🪣 to colour fast!`); };
+    grid.appendChild(b);
+  });
+  function markCurrentPage() { grid.querySelectorAll('.page-btn').forEach(b => b.setAttribute('aria-current', b.dataset.page === state.page)); }
+
+  // ---------- Saving: pictures and the drawing in progress ----------
+  // IndexedDB keeps data for good on this device (the old version used small, easily-cleared storage).
+  const GKEY = 'rangpad.gallery.v1', WKEY = 'rangpad.work.v1', MAX_PICS = 120;
+  const idb = (() => {
+    let p = null;
+    const open = () => p || (p = new Promise((res, rej) => {
+      let req;
+      try { req = indexedDB.open('aveer-drawing-pad', 1); } catch (e) { rej(e); return; }
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        if (!d.objectStoreNames.contains('pics')) d.createObjectStore('pics', { keyPath: 'id' });
+        if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv');
+      };
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+      req.onblocked = () => rej(new Error('blocked'));
+      setTimeout(() => rej(new Error('timeout')), 5000);
+    }));
+    const run = (store, mode, fn) => open().then(d => new Promise((res, rej) => {
+      const t = d.transaction(store, mode), r = fn(t.objectStore(store));
+      t.oncomplete = () => res(r ? r.result : undefined);
+      t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+    }));
+    return {
+      all: () => run('pics', 'readonly', st => st.getAll()),
+      put: v => run('pics', 'readwrite', st => st.put(v)),
+      del: id => run('pics', 'readwrite', st => st.delete(id)),
+      get: k => run('kv', 'readonly', st => st.get(k)),
+      set: (k, v) => run('kv', 'readwrite', st => st.put(v, k))
+    };
+  })();
+  const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } };
+  let storeMode = 'checking'; // 'idb' | 'local' | 'none'
+  const storeReady = (async () => {
+    try {
+      await idb.all();
+      storeMode = 'idb';
+      const old = lsGet(GKEY); // move pictures saved by the older version
+      if (Array.isArray(old) && old.length) { for (const pic of old) await idb.put(pic); try { localStorage.removeItem(GKEY); } catch (_) {} }
+    } catch (_) {
+      storeMode = lsSet('rangpad.check', 1) ? 'local' : 'none';
+    }
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (_) {}
+  })();
+
+  async function listPics() {
+    await storeReady;
+    if (storeMode === 'idb') { try { return (await idb.all()).sort((a, b) => b.id - a.id); } catch (_) {} }
+    return lsGet(GKEY) || [];
+  }
+  async function addPic(pic) {
+    await storeReady;
+    if (storeMode === 'idb') {
+      try {
+        await idb.put(pic);
+        const all = await idb.all();
+        if (all.length > MAX_PICS) for (const old of all.sort((a, b) => a.id - b.id).slice(0, all.length - MAX_PICS)) await idb.del(old.id);
+        return true;
+      } catch (_) {}
+    }
+    const list = lsGet(GKEY) || []; list.unshift(pic);
+    while (list.length > 12) list.pop();
+    let ok = lsSet(GKEY, list);
+    while (!ok && list.length > 1) { list.pop(); ok = lsSet(GKEY, list); }
+    return ok;
+  }
+  async function removePic(id) {
+    await storeReady;
+    if (storeMode === 'idb') { try { await idb.del(id); return; } catch (_) {} }
+    lsSet(GKEY, (lsGet(GKEY) || []).filter(i => i.id !== id));
+  }
+
+  // The drawing on the paper is saved a moment after every change, and when the app is closed.
+  async function loadWork() {
+    await storeReady;
+    if (storeMode === 'idb') { try { const w = await idb.get('work'); if (w) return w; } catch (_) {} }
+    return lsGet(WKEY);
+  }
+  let workTimer = null, workDirty = false;
+  function markWork() { workDirty = true; clearTimeout(workTimer); workTimer = setTimeout(saveWork, 900); }
+  async function saveWork() {
+    clearTimeout(workTimer);
+    if (!workDirty) return;
+    if (activeId !== null && document.visibilityState === 'visible') { workTimer = setTimeout(saveWork, 600); return; }
+    workDirty = false;
+    const w = { page: state.page, w: W, h: H, paint: paint.toDataURL('image/png'), at: Date.now() };
+    await storeReady;
+    if (storeMode === 'idb') { try { await idb.set('work', w); return; } catch (_) {} }
+    lsSet(WKEY, w);
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveWork(); });
+  window.addEventListener('pagehide', () => { saveWork(); });
+
+  function snapshotPicture() {
+    const max = 1000, f = Math.min(1, max / Math.max(W, H));
+    const c = document.createElement('canvas'); c.width = Math.round(W * f); c.height = Math.round(H * f);
+    const x = c.getContext('2d');
+    x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(paint, 0, 0, c.width, c.height); x.drawImage(lines, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.86);
+  }
+  let saving = false;
+  $('saveBtn').onclick = async () => {
+    unlockAudio();
+    if (saving) return;
+    saving = true;
+    const ok = await addPic({ id: Date.now(), src: snapshotPicture() });
+    saving = false;
+    if (ok) { play('save'); toast('Saved to My pictures! ⭐'); }
+    else toast('This browser is not saving pictures. Open the app from its Home Screen icon.');
+  };
+
+  function dataUrlToBlob(src) {
+    const [head, b64] = src.split(','), mime = (head.match(/data:([^;]+)/) || [, 'image/jpeg'])[1];
+    const bin = atob(b64), arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+  async function shareToPhotos(item) {
+    try {
+      const d = new Date(item.id);
+      const file = new File([dataUrlToBlob(item.src)], `aveer-drawing-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.jpg`, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    toast('Press and hold the picture, then choose Save to Photos');
+  }
+
+  function statusHTML() {
+    if (storeMode === 'idb' || storeMode === 'local') return `<p class="save-status ok">✓ Pictures are saved on this device, even after the app is closed.</p>`;
+    if (storeMode === 'none') return `<p class="save-status warn">⚠ This browser is not keeping pictures. Open the app from its Home Screen icon in Safari, not a private window.</p>`;
+    return '';
+  }
+
+  let viewing = null, galleryToken = 0;
+  async function renderGallery() {
+    const token = ++galleryToken;
+    const body = $('galleryBody');
+    const list = await listPics();
+    if (token !== galleryToken) return;
+    body.innerHTML = '';
+    if (viewing) {
+      const item = list.find(i => i.id === viewing);
+      if (item) {
+        const canShare = !!navigator.share;
+        const wrap = document.createElement('div'); wrap.className = 'viewer';
+        wrap.innerHTML = `<img src="${item.src}" alt="My drawing"><p class="hint">${canShare ? 'Tap <b>Save to Photos</b> to keep a copy in the iPad’s Photos app. You can also press and hold the picture.' : 'To keep a copy in Photos, press and hold the picture (or right-click it) and choose <b>Save image</b>.'}</p>
+          <div class="viewer-actions"><button class="act" id="backBtn"><span class="ic">⬅️</span><span>All pictures</span></button>
+          ${canShare ? `<button class="act save" id="shareBtn"><span class="ic">📷</span><span>Save to Photos</span></button>` : ''}
+          <button class="act danger" id="delBtn" data-armed="false"><span class="ic">🗑️</span><span id="delLb">Delete</span></button></div>`;
+        body.appendChild(wrap);
+        $('backBtn').onclick = () => { viewing = null; renderGallery(); };
+        if ($('shareBtn')) $('shareBtn').onclick = () => shareToPhotos(item);
+        $('delBtn').onclick = async () => {
+          const btn = $('delBtn');
+          if (btn.dataset.armed !== 'true') { btn.dataset.armed = 'true'; $('delLb').textContent = 'Tap again to delete'; return; }
+          await removePic(viewing); viewing = null; renderGallery(); toast('Picture deleted');
+        };
+        return;
+      }
+      viewing = null;
+    }
+    if (!list.length) {
+      body.innerHTML = `${statusHTML()}<div class="empty"><b>No pictures yet</b>Draw something, then press the yellow Save button.</div>`;
+      return;
+    }
+    body.insertAdjacentHTML('beforeend', `${statusHTML()}<p class="count">${list.length} ${list.length === 1 ? 'picture' : 'pictures'}</p>`);
+    const g = document.createElement('div'); g.className = 'gallery';
+    list.forEach(item => {
+      const b = document.createElement('button'); b.className = 'pic'; b.setAttribute('aria-label', 'Open picture');
+      b.innerHTML = `<img src="${item.src}" alt="" loading="lazy">`;
+      b.onclick = () => { viewing = item.id; renderGallery(); };
+      g.appendChild(b);
+    });
+    body.appendChild(g);
+  }
+
+  // ---------- Sheets, toast, header ----------
+  function openSheet(id) { $(id).hidden = false; }
+  function closeSheet(id) { $(id).hidden = true; }
+  document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeSheet(b.dataset.close));
+  document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s) s.hidden = true; }));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.sheet').forEach(s => s.hidden = true);
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+  });
+
+  let toastTimer;
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200); }
+
+  $('undoBtn').onclick = () => { unlockAudio(); undo(); };
+  $('clearBtn').onclick = () => { unlockAudio(); pushUndo(); pctx.clearRect(0, 0, W, H); play('undo'); toast('All clean! Oops? Press Undo ↩️'); };
+  $('pagesBtn').onclick = () => { unlockAudio(); markCurrentPage(); openSheet('pagesSheet'); play('pick'); };
+  $('galleryBtn').onclick = () => { unlockAudio(); viewing = null; renderGallery(); openSheet('gallerySheet'); play('pick'); };
+  $('soundBtn').onclick = () => {
+    state.sound = !state.sound; unlockAudio();
+    $('soundBtn').setAttribute('aria-pressed', state.sound);
+    $('soundBtn').setAttribute('aria-label', state.sound ? 'Sound on' : 'Sound off');
+    $('soundBtn').querySelector('.ic').textContent = state.sound ? '🔊' : '🔇';
+    play('pick');
+  };
+
+  // ---------- Start: a colouring page with a little colour already in ----------
+  const hot = window.claude && window.claude.hot;
+  const saved = hot && hot.data;
+  const loadImg = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+  async function start(data) {
+    data = data || {};
+    setTool('crayon');
+    if (data.paint) {
+      if (data.page) state.page = data.page;
+      drawLines();
+      try { pctx.drawImage(await loadImg(data.paint), 0, 0, W, H); } catch (_) {}
+      return;
+    }
+    drawLines();
+    let work = null;
+    try { work = await loadWork(); } catch (_) {}
+    if (undoStack.length) return; // he already started drawing
+    if (work && work.paint) {
+      try {
+        const im = await loadImg(work.paint);
+        if (undoStack.length) return;
+        if (work.w && work.h && (work.w !== W || work.h !== H)) resizePaper(work.w, work.h);
+        if (PAGES.some(p => p.id === work.page)) state.page = work.page;
+        drawLines();
+        pctx.clearRect(0, 0, W, H);
+        pctx.drawImage(im, 0, 0, W, H);
+        return;
+      } catch (_) {}
+    }
+    pageById(state.page).sample.forEach(([vx, vy, col]) => floodFill(pageXf.ox + vx * pageXf.k, pageXf.oy + vy * pageXf.k, col));
+  }
+  if (hot && hot.snapshot) hot.snapshot(() => ({ page: state.page, paint: paint.toDataURL('image/png') }));
+  if (hot && hot.ready) hot.ready(start); else start(saved || {});
+})();
+</script>
+
+</body>
+</html>
